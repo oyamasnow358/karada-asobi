@@ -31,13 +31,19 @@
             const r = B.sw * [0.62, 0.52, 0.44][K.diff];
             const reach = B.sw * (K.seated ? 1.9 : 2.3);
             const x = clamp(B.sx + rnd(-reach, reach), r * 1.2, K.W - r * 1.2);
-            list.push({ x, y: K.H + r, r, vy: -K.H * [0.09, 0.13, 0.18][K.diff], c: pick(COLS), gold: Math.random() < 0.1, ph: rnd(0, 6) });
+            const side = st.lr ? pick(['l', 'r']) : null;
+            list.push({ x, y: K.H + r, r, vy: -K.H * [0.09, 0.13, 0.18][K.diff], c: side ? (side === 'r' ? '#FA5252' : '#339AF0') : pick(COLS), gold: !side && Math.random() < 0.1, ph: rnd(0, 6), side, shake: 0 });
           }
-          const hands = B && B.ok ? [B.lw, B.rw, B.li, B.ri].concat(!K.seated && B.hasLegs ? [B.la, B.ra] : []).filter(p => B.vis(p)) : [];
+          const hands = B && B.ok ? [B.lw, B.rw, B.li, B.ri].concat(!K.seated && B.hasLegs && !st.lr ? [B.la, B.ra] : []).filter(p => B.vis(p)) : [];
+          // みぎ・ひだり モード：その がわの 手だけで われる（その子の みぎて＝画面の みぎ）
+          const sideHands = { l: B && B.ok ? [B.lw, B.li].filter(p => B.vis(p)) : [], r: B && B.ok ? [B.rw, B.ri].filter(p => B.vis(p)) : [] };
           for (let i = list.length - 1; i >= 0; i--) {
             const b = list[i];
             b.y += b.vy * dt; b.x += Math.sin(K.t * 1.6 + b.ph) * 12 * dt;
-            if (hands.some(p => Math.hypot(p.x - b.x, p.y - b.y) < b.r + B.sw * 0.12)) {
+            b.shake = Math.max(0, b.shake - dt);
+            const near = p => Math.hypot(p.x - b.x, p.y - b.y) < b.r + B.sw * 0.12;
+            if (b.side && !sideHands[b.side].some(near) && hands.some(near)) { if (!b.shake) { b.shake = 0.5; K.sfx('bonk'); } }
+            else if (b.side ? sideHands[b.side].some(near) : hands.some(near)) {
               list.splice(i, 1); K.sfx('pop'); K.burst(b.x, b.y, b.gold ? ['#FFD43B', '#FFF3BF', '#FAB005'] : [b.c, '#fff'], 18);
               K.add(b.gold ? 3 : 1, b.x, b.y);
               continue;
@@ -53,6 +59,7 @@
             g.beginPath(); g.moveTo(b.x - b.r * 0.12, b.y + b.r * 1.15); g.lineTo(b.x + b.r * 0.12, b.y + b.r * 1.15); g.lineTo(b.x, b.y + b.r * 0.95); g.fill();
             g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(b.x - b.r * 0.32, b.y - b.r * 0.38, b.r * 0.16, b.r * 0.26, -0.5, 0, 7); g.fill();
             if (b.gold) star(g, b.x, b.y + b.r * 0.05, b.r * 0.42, '#FFF3BF');
+            if (b.side) { g.fillStyle = '#fff'; g.font = '900 ' + Math.round(b.r * 0.62) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(b.side === 'r' ? 'みぎ' : 'ひだり', b.x + (b.shake ? Math.sin(K.t * 60) * 6 : 0), b.y); }
           });
         }
       };

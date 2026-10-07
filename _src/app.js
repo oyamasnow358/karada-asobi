@@ -21,7 +21,7 @@
      せってい
      ============================================================ */
   const ST_KEY = 'mieel-karada-st';
-  const DEF = { seated: false, time: 60, diff: 1, look: 'chara', sound: true, bgm: true, voice: true, chara: 'kuma' };
+  const DEF = { seated: false, time: 60, diff: 1, look: 'chara', sound: true, bgm: true, voice: true, chara: 'kuma', lr: false, calm: false, circuit: ['fusen', 'tori', 'maneko', 'daruma'], ctime: 60 };
   const st = Object.assign({}, DEF);
   try { Object.assign(st, JSON.parse(localStorage.getItem(ST_KEY) || '{}')); } catch (e) { /* 無視 */ }
   const saveSt = () => { try { localStorage.setItem(ST_KEY, JSON.stringify(st)); } catch (e) { /* 無視 */ } };
@@ -36,7 +36,8 @@
     const a = A(); if (!a) return;
     const t = a.currentTime + t0, o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol || 0.2, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (!st.sound) return;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime((vol || 0.2) * (st.calm ? 0.45 : 1), t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
   }
   function noise(t0, dur, vol, hp) {
@@ -44,7 +45,8 @@
     const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
     const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    s.buffer = buf; f.type = 'highpass'; f.frequency.value = hp || 800; g.gain.value = vol || 0.3;
+    if (!st.sound) return;
+    s.buffer = buf; f.type = 'highpass'; f.frequency.value = hp || 800; g.gain.value = (vol || 0.3) * (st.calm ? 0.45 : 1);
     s.connect(f).connect(g).connect(a.destination); s.start(a.currentTime + t0);
   }
   const SFX = {

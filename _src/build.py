@@ -2,7 +2,7 @@
 import io, hashlib
 R = lambda p: io.open(p, encoding='utf-8').read()
 s = R('_src/src.html')
-for key, f in [('JASAY', 'jasay.js'), ('FX', 'fx.js'), ('APP', 'app.js'), ('GAMES', 'games.js'), ('BOOT', 'boot.js')]:
+for key, f in [('JASAY', 'jasay.js'), ('FX', 'fx.js'), ('APP', 'app.js'), ('GAMES', 'games.js'), ('GAMES2', 'games2.js'), ('BOOT', 'boot.js')]:
     s = s.replace('/*__%s__*/' % key, R('_src/' + f).rstrip() + '\n')
 io.open('index.html', 'w', encoding='utf-8', newline='\n').write(s)
 h = hashlib.sha1(s.encode('utf-8')); h.update(open('vendor/vision_bundle.js', 'rb').read())

@@ -80,6 +80,7 @@
   .gcard .nm { font-size: 25px; display: block; }
   .gcard small { color: var(--sub); font-weight: 500; font-size: 14px; line-height: 1.5; display: block; margin-top: 4px; }
   .gcard .best { position: absolute; right: 12px; top: 8px; font-size: 13px; color: var(--or); }
+  .gcard.circ { grid-column: 1 / -1; border-color: #FFC078; background: linear-gradient(90deg, #FFF4E6, #fff); }
   .gcard.stand::after { content: "たって"; position: absolute; right: 12px; bottom: 8px; font-size: 11px; color: #fff; background: var(--blue); border-radius: 6px; padding: 1px 6px; }
 
   /* ---------- ゲーム画面 ---------- */
@@ -138,6 +139,11 @@
   .seg button { height: 44px; padding: 0 14px; border: none; background: #fff; font-size: 15px; border-right: 2px solid var(--line); }
   .seg button:last-child { border-right: none; }
   .seg button.on { background: var(--main); color: #fff; }
+  .lic { font-size: 15px; font-weight: 500; line-height: 1.75; color: var(--ink); }
+  .lic h3 { font-size: 17px; margin: 14px 0 6px; } .lic h3:first-child { margin-top: 0; }
+  .lic p { margin: 0; } .lic a { color: #1864AB; }
+  .licitem { border: 2px solid #EEF2F7; border-radius: 14px; padding: 10px 14px; margin-bottom: 8px; }
+  .lic pre { white-space: pre-wrap; font-size: 11px; line-height: 1.5; background: #F8F9FA; border-radius: 10px; padding: 10px; max-height: 320px; overflow-y: auto; -webkit-user-select: text; user-select: text; }
   table.log { border-collapse: collapse; width: 100%; font-size: 15px; }
   table.log td, table.log th { border-bottom: 1px solid #EEF2F7; padding: 6px 8px; text-align: left; font-weight: 600; }
   table.log th { color: var(--sub); font-size: 13px; }
@@ -163,6 +169,7 @@
 /*__FX__*/
 /*__APP__*/
 /*__GAMES__*/
+/*__GAMES2__*/
 /*__BOOT__*/
 })();
 </script>
