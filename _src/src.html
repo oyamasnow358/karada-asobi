@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!--
+  © 2026 MieeL（ミエル） https://www.mieel-support-school.com/  All rights reserved.
+  学校・家庭・療育機関などで子どもの学習や支援に使うことは自由です。
+  プログラム・画像・文章の無断転載・複製、改変しての公開・再配布、販売はお断りします（くわしくは LICENSE.md）。
+  からだの読み取りには Google MediaPipe（Apache License 2.0）を使っています（vendor/）。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="からだであそぼ">
+<meta name="theme-color" content="#E9FBF0">
+<title>からだで あそぼ｜MieeL</title>
+<link rel="apple-touch-icon" id="touchIcon" href="">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%B8%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E9FBF0; --ink: #1F2937; --sub: #6B7280; --line: #CDEFD9; --main: #2F9E44; --main-d: #237A34; --blue: #1C7ED6; --blue-d: #1864AB;
+    --red: #E03131; --or: #F08C00; --or-d: #C76F00; --vio: #7048E8;
+    --mieel: radial-gradient(circle at 50% 0%,#1B8FE8 0%,#2BB8D6 28%,#3FCB9E 45%,#8FD24A 58%,#F4D027 72%,#F7941E 100%);
+    --emoji: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+    --kyo: "Klee One","UD デジタル 教科書体 NK-R","UD Digital Kyokasho NK-R","YuKyokasho Yoko","Hiragino Maru Gothic ProN",sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: "Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","BIZ UDPGothic","Yu Gothic UI","Meiryo",system-ui,sans-serif; font-weight: 700;
+    word-break: keep-all; overflow-wrap: anywhere; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; overscroll-behavior: none;
+    display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+  .emo { font-family: var(--emoji); font-weight: 400; line-height: 1; }
+  [hidden] { display: none !important; }
+  .topbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px; min-height: 58px; }
+  .brand { flex: 1; display: flex; justify-content: center; align-items: center; gap: 12px; color: #4F9D69; font-size: 15px; letter-spacing: .08em; min-width: 0; }
+  .mieel-brand { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .orb-mini { width: 22px; height: 22px; border-radius: 50%; background: var(--mieel); flex: none; }
+  .mieel-brand strong { font-size: 16px; color: var(--ink); }
+  .mieel-brand .url { font-size: 12px; color: var(--sub); font-weight: 600; }
+  @media (max-width: 699px) { .topbar .url, .topbar .appname { display: none; } }
+  .gear { position: relative; width: 50px; height: 50px; border-radius: 50%; border: none; background: transparent; opacity: .35; font-size: 26px; display: grid; place-items: center; touch-action: none; }
+  .gear::after { content: ""; position: absolute; inset: 2px; border-radius: 50%; border: 4px solid transparent; }
+  .gear.pressing { opacity: 1; }
+  .gear.pressing::after { border-color: var(--main); animation: ring 1.5s linear forwards; }
+  @keyframes ring { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px 14px; }
+  body.playing .topbar { display: none; }
+  body.playing main { padding: 0; }
+  .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: fadein .25s ease-out; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { 0% { transform: scale(.5); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: none; opacity: 1; } }
+  @keyframes bob { 50% { transform: translateY(-8px); } }
+  .big-btn { min-width: min(300px, 78vw); min-height: 80px; padding: 0 28px; border: none; border-radius: 999px; color: #fff; font-size: clamp(22px, 3vw, 32px); display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+  .big-btn.go { background: var(--main); box-shadow: 0 8px 0 var(--main-d); }
+  .big-btn.blue { background: var(--blue); box-shadow: 0 8px 0 var(--blue-d); }
+  .big-btn.or { background: var(--or); box-shadow: 0 8px 0 var(--or-d); }
+  .big-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .pill { height: 50px; padding: 0 18px; border-radius: 999px; border: 3px solid var(--line); background: #fff; font-size: 17px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 var(--line); white-space: nowrap; }
+  .pill:active { transform: translateY(2px); box-shadow: none; }
+  .pill.danger { color: var(--red); border-color: #FFC9C9; }
+
+  /* ---------- ホーム ---------- */
+  .home { gap: 14px; overflow-y: auto; align-items: center; padding-bottom: 8px; }
+  .home h1 { font-size: clamp(32px, 5vw, 54px); margin: 6px 0 0; text-align: center; }
+  .home h1 .emo { display: inline-block; animation: bob 1.6s ease-in-out infinite; }
+  .who { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .who > span { color: var(--sub); font-size: 16px; }
+  .chara { width: 74px; height: 74px; border-radius: 50%; border: 4px solid var(--line); background: #fff; display: grid; place-items: center; padding: 0; box-shadow: 0 4px 0 rgba(0,0,0,.06); }
+  .chara canvas { width: 62px; height: 62px; }
+  .chara.on { border-color: var(--main); background: #EBFBEE; transform: scale(1.08); }
+  .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; width: min(100%, 1100px); }
+  .gcard { position: relative; border: 4px solid var(--line); background: #fff; border-radius: 28px; padding: 18px 16px 16px; display: flex; gap: 14px; align-items: center; text-align: left; box-shadow: 0 7px 0 rgba(0,0,0,.07); }
+  .gcard:active { transform: translateY(5px); box-shadow: 0 2px 0 rgba(0,0,0,.07); }
+  .gcard .emo { font-size: 64px; flex: none; }
+  .gcard .nm { font-size: 25px; display: block; }
+  .gcard small { color: var(--sub); font-weight: 500; font-size: 14px; line-height: 1.5; display: block; margin-top: 4px; }
+  .gcard .best { position: absolute; right: 12px; top: 8px; font-size: 13px; color: var(--or); }
+  .gcard.stand::after { content: "たって"; position: absolute; right: 12px; bottom: 8px; font-size: 11px; color: #fff; background: var(--blue); border-radius: 6px; padding: 1px 6px; }
+
+  /* ---------- ゲーム画面 ---------- */
+  .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #0B1A2E; }
+  .stage video.camvideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .stage canvas.game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: flex-start; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 14px 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .score { margin-left: auto; background: rgba(255,255,255,.94); border-radius: 22px; padding: 6px 18px; font-size: clamp(26px, 4vw, 44px); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.15); font-family: var(--kyo); }
+  .score .emo { font-size: .9em; }
+  .score.bump { animation: pop .35s ease-out; }
+  .timer { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: rgba(255,255,255,.35); }
+  .timer i { display: block; height: 100%; background: linear-gradient(90deg, #69DB7C, #FFD43B); transition: width .3s linear; }
+  .quit { position: relative; overflow: hidden; flex: none; box-shadow: 0 3px 10px rgba(0,0,0,.18); border: 2px solid rgba(255,255,255,.7); background: rgba(255,255,255,.9); color: #868E96; font-size: 15px; padding: 10px 14px; border-radius: 999px; touch-action: none; }
+  .quit i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #FFE3E3; }
+  .quit span { position: relative; }
+  .quit.pressing { color: #E03131; border-color: #FFA8A8; }
+  .quit.pressing i { width: 100%; transition: width 1.5s linear; }
+  .msg { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; color: #fff; font-family: var(--kyo); font-size: clamp(40px, 9vmin, 110px); text-shadow: 0 0 4px rgba(20,30,50,.75), 0 0 4px rgba(20,30,50,.75), 0 4px 0 rgba(0,0,0,.3), 0 0 30px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
+  .msg.pop { animation: pop .45s ease-out; }
+  .msg small { display: block; font-size: .38em; margin-top: 10px; }
+  .guide { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); background: rgba(255,255,255,.95); border-radius: 26px; padding: 14px 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.2); max-width: 94%; }
+  .guide .t { font-size: clamp(19px, 2.6vw, 26px); text-align: center; }
+  .checks { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .checks span { padding: 6px 14px; border-radius: 999px; background: #F1F3F5; color: #868E96; font-size: 17px; }
+  .checks span.ok { background: #D3F9D8; color: var(--main-d); }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; text-align: center; font-size: 20px; line-height: 1.7; padding: 20px; background: #0B1A2E; }
+  .loading .emo { font-size: 60px; display: block; }
+  .loading .pill { color: var(--ink); }
+
+  /* ---------- けっか ---------- */
+  .result { align-items: center; justify-content: center; gap: 14px; text-align: center; }
+  .result .big { font-size: clamp(90px, 16vmin, 170px); animation: pop .6s ease-out; }
+  .result h2 { margin: 0; font-size: clamp(32px, 5vw, 56px); font-family: var(--kyo); }
+  .result .num { font-size: clamp(48px, 9vmin, 100px); font-family: var(--kyo); color: var(--or); line-height: 1; }
+  .result .num small { font-size: .4em; color: var(--ink); }
+  .result .stars { font-size: clamp(44px, 7vmin, 72px); letter-spacing: 6px; }
+  .result .stars span { display: inline-block; animation: pop .5s ease-out both; }
+  .result .sub { color: var(--sub); font-size: 18px; font-weight: 600; }
+  .result .acts { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+  /* ---------- 先生用 ---------- */
+  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal.open { display: flex; }
+  .sheet { background: #fff; border-radius: 28px; width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .shead { flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 2px solid #EEF2F7; }
+  .shead h2 { flex: 1; margin: 0; font-size: 22px; }
+  .tabs { display: flex; gap: 6px; padding: 10px 14px 0; flex-wrap: wrap; }
+  .tabs button { height: 46px; padding: 0 16px; border-radius: 14px 14px 0 0; border: 2px solid var(--line); border-bottom: none; background: #F8FAFC; font-size: 16px; }
+  .tabs button.on { background: #fff; color: var(--main-d); border-color: var(--main); }
+  .sbody { flex: 1; overflow-y: auto; padding: 14px 18px 22px; display: flex; flex-direction: column; gap: 14px; -webkit-overflow-scrolling: touch; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row .lb { min-width: 150px; font-size: 16px; }
+  .row small, .help { color: var(--sub); font-weight: 500; font-size: 14px; line-height: 1.6; }
+  .seg { display: inline-flex; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { height: 44px; padding: 0 14px; border: none; background: #fff; font-size: 15px; border-right: 2px solid var(--line); }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--main); color: #fff; }
+  table.log { border-collapse: collapse; width: 100%; font-size: 15px; }
+  table.log td, table.log th { border-bottom: 1px solid #EEF2F7; padding: 6px 8px; text-align: left; font-weight: 600; }
+  table.log th { color: var(--sub); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="mieel-brand"><span class="orb-mini"></span><strong>MieeL</strong><span class="url">www.mieel-support-school.com</span></span><span class="appname">からだで あそぼ</span></div>
+  <button class="gear" id="gear" type="button" aria-label="先生用せってい（ながおし）">⚙️</button>
+</div>
+<main id="main"></main>
+<div class="modal" id="teacher"><div class="sheet">
+  <div class="shead"><h2>⚙️ 先生用</h2><button class="pill" type="button" id="tClose" style="height:42px">とじる</button></div>
+  <div class="tabs" id="tTabs"></div>
+  <div class="sbody" id="tBody"></div>
+</div></div>
+<video id="video" playsinline webkit-playsinline muted autoplay></video>
+<style>#video:not(.camvideo) { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }</style>
+<script>
+/*__JASAY__*/
+(function () {
+  'use strict';
+/*__FX__*/
+/*__APP__*/
+/*__GAMES__*/
+/*__BOOT__*/
+})();
+</script>
+</body>
+</html>
