@@ -21,7 +21,7 @@
      せってい
      ============================================================ */
   const ST_KEY = 'mieel-karada-st';
-  const DEF = { seated: false, time: 60, diff: 1, look: 'chara', sound: true, bgm: true, voice: true, chara: 'kuma', lr: false, calm: false, circuit: ['fusen', 'tori', 'maneko', 'daruma'], ctime: 60 };
+  const DEF = { seated: false, time: 60, diff: 1, look: 'chara', sound: true, bgm: true, voice: true, chara: 'kuma', lr: false, calm: false, vsOn: false, vsMode: 'battle', vsDiff: [1, 1], vsChara: ['kuma', 'usagi'], circuit: ['fusen', 'tori', 'maneko', 'daruma'], ctime: 60 };
   const st = Object.assign({}, DEF);
   try { Object.assign(st, JSON.parse(localStorage.getItem(ST_KEY) || '{}')); } catch (e) { /* 無視 */ }
   const saveSt = () => { try { localStorage.setItem(ST_KEY, JSON.stringify(st)); } catch (e) { /* 無視 */ } };
@@ -99,7 +99,7 @@
      ============================================================ */
   const video = $('#video');
   const timeout = (pr, ms, name) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error(name)), ms))]);
-  const V = { ready: false, loading: null, pose: null, stream: null, step: '', lastVT: -1, lastT: 0 };
+  const V = { ready: false, loading: null, pose: null, stream: null, step: '', lastVT: -1, lastT: 0, np: 1, nextAt: 0, cost: 0, n: 0, errN: 0, stillSince: 0 };
   function loadVision() {
     if (V.ready) return Promise.resolve();
     if (V.loading) return V.loading;
@@ -111,8 +111,9 @@
         V.step = 'からだの モデル（2/2）' + (delegate === 'CPU' ? '・CPU' : '');
         V.pose = await mp.PoseLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: new URL('vendor/models/pose_landmarker_lite.task', location.href).href, delegate }, runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
       };
+      if (V.forceCPU) { await mk('CPU'); V.delegate = 'CPU'; V.ready = true; V.np = 1; return; }
       try { await timeout(mk('GPU'), 25000, 'gpu-timeout'); V.delegate = 'GPU'; } catch (e) { console.warn(e); V.gpuErr = String(e && e.message || e); await mk('CPU'); V.delegate = 'CPU'; }
-      V.ready = true;
+      V.ready = true; V.np = 1;
     })();
     V.loading.catch(() => { V.loading = null; });
     return V.loading;
@@ -124,25 +125,63 @@
     video.srcObject = V.stream;
     await timeout(video.play(), 5000, 'play').catch(() => {});
   }
-  function stopCam() { if (V.stream) { V.stream.getTracks().forEach(t => t.stop()); V.stream = null; } video.srcObject = null; video.className = ''; document.body.appendChild(video); releaseWake(); }
+  // よみとる 人数（ふたりで あそぶ ときは 2）
+  async function setPoses(n) { if (!V.pose || V.np === n) return; try { await V.pose.setOptions({ numPoses: n }); V.np = n; } catch (e) { console.warn(e); } }
+  // からだを よむ。iPad が かたまらないように、よみとりに つかうのは 時間の 半分まで。
+  // カメラが 止まったら ひらきなおし、よみとりが こわれたら つくりなおす。あたらしい データが ない ときは undefined
+  function readPoses() {
+    if (!V.ready || video.readyState < 2 || !video.videoWidth) return undefined;
+    const now = performance.now();
+    if (video.currentTime === V.lastVT) { if (V.stream && V.stillSince && now - V.stillSince > 3000) restartCam(); return undefined; }
+    V.stillSince = now;
+    if (now < V.nextAt) return undefined;
+    V.lastVT = video.currentTime;
+    let t = now; if (t <= V.lastT) t = V.lastT + 1; V.lastT = t;
+    try {
+      const res = V.pose.detectForVideo(video, t), c = performance.now() - now;
+      V.n++; V.errN = 0; if (V.n > 5) V.cost = V.cost ? V.cost * 0.8 + c * 0.2 : c;
+      V.nextAt = now + Math.max(28, V.cost * 2);
+      return res.landmarks || [];
+    } catch (e) { console.warn(e); V.nextAt = now + 200; if (++V.errN >= 10) rebuildVision(); return undefined; }
+  }
+  function rebuildVision() {
+    if (V.rebuilding) return; V.rebuilding = true; V.rebuilds = (V.rebuilds || 0) + 1;
+    if (V.delegate === 'GPU' && V.rebuilds >= 2) V.forceCPU = true;
+    const want = V.np;
+    try { V.pose && V.pose.close(); } catch (e) { /* 無視 */ }
+    V.ready = false; V.loading = null; V.pose = null; V.errN = 0; V.n = 0; V.cost = 0;
+    loadVision().then(() => setPoses(want)).catch(e => console.warn(e)).finally(() => { V.rebuilding = false; });
+  }
+  async function restartCam() {
+    if (V.restarting) return; V.restarting = true;
+    try { if (V.stream) V.stream.getTracks().forEach(t => t.stop()); V.stream = null; await timeout(startCam(), 10000, 'camtimeout'); video.play().catch(() => {}); } catch (e) { console.warn('camera restart', e); }
+    V.stillSince = performance.now(); V.restarting = false;
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && V.stream) { V.stillSince = performance.now(); video.play().catch(() => {}); } });
+  function stopCam() { V.stillSince = 0; if (V.stream) { V.stream.getTracks().forEach(t => t.stop()); V.stream = null; } video.srcObject = null; video.className = ''; document.body.appendChild(video); releaseWake(); }
   let wake = null;
   async function keepAwake() { try { if ('wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) { /* 無視 */ } }
   function releaseWake() { try { if (wake) wake.release(); } catch (e) { /* 無視 */ } wake = null; }
 
   // カメラの 点 → 画面の 点（かがみ・画面いっぱい）。なめらかに する
   const LM = { nose: 0, leye: 2, reye: 5, ls: 11, rs: 12, le: 13, re: 14, lw: 15, rw: 16, li: 19, ri: 20, lh: 23, rh: 24, lk: 25, rk: 26, la: 27, ra: 28 };
-  let prevPts = null;
-  function readBody(lms, W, H) {
-    if (!lms) { prevPts = null; return null; }
+  let prevPts = null; const prevs = [null, null];
+  function readBody(lms, W, H, slot) {
+    slot = slot || 0;
+    if (!lms) { prevs[slot] = null; if (!slot) prevPts = null; return null; }
+    const pp = prevs[slot];
     const VW = video.videoWidth || 16, VH = video.videoHeight || 9;
     const sc = Math.max(W / VW, H / VH), ox = (W - VW * sc) / 2, oy = (H - VH * sc) / 2;
     const pts = lms.map((l, i) => {
       const p = { x: W - (ox + l.x * VW * sc), y: oy + l.y * VH * sc, v: l.visibility == null ? 1 : l.visibility };
-      const q = prevPts && prevPts[i];
+      const q = pp && pp[i];
       if (q && q.v > 0.3 && p.v > 0.3) { const k = 0.55; p.x = q.x + (p.x - q.x) * k; p.y = q.y + (p.y - q.y) * k; }
       return p;
     });
-    prevPts = pts;
+    prevs[slot] = pts; if (!slot) prevPts = pts;
+    return mkBody(pts, W, H);
+  }
+  function mkBody(pts, W, H) {
     const B = { pts, W, H };
     Object.keys(LM).forEach(k => { B[k] = pts[LM[k]]; });
     const vis = p => p && p.v > 0.5;
@@ -231,4 +270,4 @@
   const LOG_KEY = 'mieel-karada-log';
   const logAll = () => { try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { return []; } };
   function logPush(r) { try { const a = logAll(); a.push(r); while (a.length > 2000) a.shift(); localStorage.setItem(LOG_KEY, JSON.stringify(a)); } catch (e) { /* 無視 */ } }
-  const bestOf = id => logAll().filter(x => x.g === id && x.seated === st.seated).reduce((m, x) => Math.max(m, x.score), 0);
+  const bestOf = id => logAll().filter(x => x.g === id && x.seated === st.seated && !x.vs).reduce((m, x) => Math.max(m, x.score), 0);

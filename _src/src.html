@@ -112,6 +112,38 @@
   .loading .pill { color: var(--ink); }
 
   /* ---------- けっか ---------- */
+  /* ふたりで */
+  .gcard.vs { border-color: #B197FC; background: linear-gradient(90deg, #FFE3E3, #fff 45%, #fff 55%, #D0EBFF); }
+  .gcard.new::after { content: "ふたりで 1つの がめん"; position: absolute; right: 12px; bottom: 8px; font-size: 11px; color: #fff; background: #7950F2; border-radius: 6px; padding: 1px 6px; }
+  .vmodes { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .vmode { min-width: 230px; border: 4px solid var(--line); background: #fff; border-radius: 26px; padding: 12px 20px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .vmode .emo { font-size: 44px; } .vmode b { font-size: 24px; } .vmode small { color: var(--sub); font-weight: 500; font-size: 14px; }
+  .vmode.on { border-color: #7950F2; background: #F3F0FF; box-shadow: 0 0 0 4px rgba(121,80,242,.18); }
+  .vpanels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; width: min(100%, 1100px); }
+  .vpanel { border: 4px solid; border-radius: 26px; padding: 12px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .vph { font-size: 26px; text-align: center; } .vph small { display: block; font-size: 13px; color: var(--sub); font-weight: 500; }
+  .vchar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .vchar .chara { width: 72px; height: 72px; padding: 0; } .vchar .chara canvas { width: 64px; height: 64px; }
+  .vdiff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; } .vdiff > span { font-size: 15px; color: var(--sub); }
+  .vhalf { position: absolute; top: 0; bottom: 0; left: 0; width: 50%; pointer-events: none; }
+  .vhalf.r { left: 50%; }
+  .vhalf .msg { font-size: clamp(30px, 6.5vmin, 76px); }
+  .vscore { position: absolute; bottom: 24px; right: 16px; background: rgba(255,255,255,.95); border: 5px solid; border-radius: 22px; padding: 4px 16px; font-size: clamp(26px, 4vw, 44px); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.15); font-family: var(--kyo); }
+  .vscore .emo { font-size: .6em; } .vscore.bump { animation: pop .35s ease-out; }
+  .stage.shared .vhalf .msg { display: none; }
+  .vtotal { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(255,255,255,.95); border-radius: 20px; padding: 6px 16px; font-size: 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.15); min-width: 200px; z-index: 2; }
+  .vtotal .bar { width: 100%; height: 12px; border-radius: 6px; background: #E9ECEF; overflow: hidden; } .vtotal .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #FA5252, #B197FC, #339AF0); transition: width .3s; }
+  .vtotal.done { background: #FFF3BF; }
+  .stage.vs .hud { justify-content: flex-start; }
+  .stage.vs .vhalf:not(.r) .vscore { right: auto; left: 16px; }
+  .vchecks { display: flex; flex-direction: column; gap: 6px; }
+  .vrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-left: 6px solid; padding-left: 8px; }
+  .vrow span { padding: 4px 12px; border-radius: 999px; background: #F1F3F5; color: #868E96; font-size: 15px; } .vrow span.ok { background: #D3F9D8; color: var(--main-d); }
+  .vresrow { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .vres { position: relative; border: 5px solid; border-radius: 26px; padding: 14px 30px; min-width: 200px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .vres.win { transform: scale(1.08); box-shadow: 0 10px 30px rgba(0,0,0,.15); }
+  .vres .crown { position: absolute; top: -34px; font-size: 48px; animation: pop .6s ease-out; }
+  .vsmark { font-size: 36px; color: #7950F2; font-family: var(--kyo); }
   .result { align-items: center; justify-content: center; gap: 14px; text-align: center; }
   .result .big { font-size: clamp(90px, 16vmin, 170px); animation: pop .6s ease-out; }
   .result h2 { margin: 0; font-size: clamp(32px, 5vw, 56px); font-family: var(--kyo); }
@@ -170,6 +202,7 @@
 /*__APP__*/
 /*__GAMES__*/
 /*__GAMES2__*/
+/*__VS__*/
 /*__BOOT__*/
 })();
 </script>

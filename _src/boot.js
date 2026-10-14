@@ -22,6 +22,7 @@
     const scr = h('section', { class: 'screen home' },
       h('h1', null, h('span', { class: 'emo' }, '🤸'), ' からだで あそぼ'),
       who,
+      vsCard(),
       circuitCard(),
       h('div', { class: 'games' }, GAMES.map(gm => {
         const best = bestOf(gm.id);
@@ -120,11 +121,8 @@
       K.W = W; K.H = H;
       const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0; last = ts; K.t += dt;
       // からだ
-      if (V.ready && video.readyState >= 2 && video.videoWidth && video.currentTime !== V.lastVT) {
-        V.lastVT = video.currentTime;
-        let t = performance.now(); if (t <= V.lastT) t = V.lastT + 1; V.lastT = t;
-        try { const res = V.pose.detectForVideo(video, t); B = readBody(res.landmarks && res.landmarks[0], W, H); } catch (e) { console.warn(e); }
-      }
+      const lms = readPoses();
+      if (lms !== undefined) B = readBody(lms[0], W, H);
       // かく
       g.clearRect(0, 0, W, H);
       const scene = st.look === 'chara';
@@ -176,11 +174,11 @@
       video.className = 'camvideo'; stage.insertBefore(video, stage.firstChild); video.play().catch(() => {});
       loading.querySelector('.lt').textContent = 'からだの よみとりを じゅんび ちゅう…';
       const tick = setInterval(() => { const el = loading.querySelector('.lt'); if (el) el.textContent = 'よみとりの じゅんび：' + (V.step || '…'); }, 300);
-      try { await timeout(loadVision(), 120000, 'visiontimeout'); }
+      try { await timeout(loadVision(), 120000, 'visiontimeout'); await setPoses(1); }
       catch (e) { clearInterval(tick); loading.innerHTML = ''; loading.append(h('div', null, h('span', { class: 'emo' }, '🙈'), 'よみとりの じゅんびが できませんでした。', h('small', { style: 'display:block;font-size:14px;opacity:.75;margin-top:6px' }, (V.step || '') + ' / ' + (e && e.message)), h('button', { class: 'pill', type: 'button', style: 'margin-top:14px', onclick: () => go(renderPlay, arg) }, '🔄 もう いちど'))); return; }
       clearInterval(tick);
       if (!stage.isConnected) return;
-      loading.hidden = true; state = 'ready'; keepAwake();
+      loading.hidden = true; state = 'ready'; keepAwake(); V.stillSince = performance.now();
       say((circ && circ.i ? 'つぎは ' : '') + gm.name + '。' + (st.seated ? 'かたと てが うつるように すわってね' : 'からだが うつるように はなれてね'));
     })();
     raf = requestAnimationFrame(frame);
@@ -267,6 +265,7 @@
         seg('BGM', 'bgm', [[true, 'ながす'], [false, 'ながさない']], '音が にがてな 子には「ながさない」'),
         seg('こえ', 'voice', [[true, 'よみあげる'], [false, 'よまない']]),
         seg('おだやか モード', 'calm', [[false, 'ふつう'], [true, '🌙 おだやか']], '音を 小さく・はなびや つぶつぶを へらします（感覚が びんかんな 子に）'),
+        seg('⚔️ ふたりで あそぶ', 'vsOn', [[false, 'ださない'], [true, '⚔️ ホームに だす']], 'たいせん・きょうりょく。iPad の 前に 2人 ならんで、画面の 左と 右で あそびます（カメラから 2.5〜3m）。むずかしさは 1人ずつ えらべます'),
         seg('ふうせん：て を きめる', 'lr', [[false, 'どちらの 手でも'], [true, '🔴みぎ・🔵ひだり']], '「みぎ」の ふうせんは みぎてで、「ひだり」は ひだりてで わる（左右の 理解・正中線こえ）'),
         h('p', { class: 'help', style: 'margin:10px 0 0;text-align:center' }, '© 2026 MieeL　学校や家庭での利用は自由です（無断転載・再配布・販売はお断り）。くわしくは「📜 ライセンス」'));
     } else if (tTab === 'circ') {
@@ -277,12 +276,12 @@
         h('div', { class: 'row' }, h('button', { class: 'pill', type: 'button', onclick: () => { st.circuit = ['fusen', 'tori', 'maneko', 'balance', 'nazoru']; saveSt(); renderTeacher(); } }, '🌱 おすすめ：じっくり'), h('button', { class: 'pill', type: 'button', onclick: () => { st.circuit = ['keeper', 'jump', 'taiko', 'daruma', 'mado']; saveSt(); renderTeacher(); } }, '🔥 おすすめ：うごきまくる'), h('button', { class: 'pill danger', type: 'button', onclick: () => { st.circuit = []; saveSt(); renderTeacher(); } }, '🗑️ からっぽ')));
     } else if (tTab === 'log') {
       const a = logAll().slice().reverse();
-      const name = id => (GAMES.find(x => x.id === id) || { name: id }).name;
+      const name = id => (GAMES.concat([FUTARI]).find(x => x.id === id) || { name: id }).name;
       b.append(a.length ? h('table', { class: 'log' }, h('tr', null, ['日時', 'あそび', 'けっか', 'じかん', 'ようす'].map(t => h('th', null, t))),
-        a.slice(0, 80).map(x => h('tr', null, h('td', null, new Date(x.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })), h('td', null, name(x.g) + (x.seated ? '🪑' : '')), h('td', null, x.score), h('td', null, x.dur + 'びょう'),
+        a.slice(0, 80).map(x => h('tr', null, h('td', null, new Date(x.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })), h('td', null, (x.vs ? (x.vs.mode === 'coop' ? '🤝' : '⚔️') : '') + name(x.g) + (x.seated ? '🪑' : '')), h('td', null, x.vs ? x.vs.s.join(' − ') : x.score), h('td', null, x.dur + 'びょう'),
           h('td', null, Object.entries(x.stats || {}).map(([k, v]) => k + v).concat(Object.entries(x.avgs || {}).map(([k, v]) => k + v + '%')).join(' '))))) : h('p', { class: 'help' }, 'まだ きろくが ありません'),
         h('div', { class: 'row' },
-          h('button', { class: 'pill', type: 'button', onclick: () => { const csv = '﻿日時,あそび,けっか,じかん(秒),むずかしさ,すわって,ようす\n' + logAll().map(x => [new Date(x.t).toLocaleString('ja-JP'), name(x.g), x.score, x.dur, ['やさしい', 'ふつう', 'むずかしい'][x.diff], x.seated ? 'はい' : '', Object.entries(x.stats || {}).map(([k, v]) => k + v).concat(Object.entries(x.avgs || {}).map(([k, v]) => k + v + '%')).join(' ')].join(',')).join('\n'); const el = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'からだであそぼ_きろく.csv' }); document.body.appendChild(el); el.click(); setTimeout(() => el.remove(), 500); } }, '📄 CSV で かきだす'),
+          h('button', { class: 'pill', type: 'button', onclick: () => { const csv = '﻿日時,あそび,けっか,じかん(秒),むずかしさ,すわって,ようす\n' + logAll().map(x => [new Date(x.t).toLocaleString('ja-JP'), (x.vs ? (x.vs.mode === 'coop' ? 'きょうりょく：' : 'たいせん：') : '') + name(x.g), x.vs ? 'あか' + x.vs.s[0] + ' / あお' + x.vs.s[1] : x.score, x.dur, x.vs ? x.vs.d.map(d => ['やさしい', 'ふつう', 'むずかしい'][d]).join('/') : ['やさしい', 'ふつう', 'むずかしい'][x.diff], x.seated ? 'はい' : '', Object.entries(x.stats || {}).map(([k, v]) => k + v).concat(Object.entries(x.avgs || {}).map(([k, v]) => k + v + '%')).join(' ')].join(',')).join('\n'); const el = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'からだであそぼ_きろく.csv' }); document.body.appendChild(el); el.click(); setTimeout(() => el.remove(), 500); } }, '📄 CSV で かきだす'),
           h('button', { class: 'pill danger', type: 'button', onclick: () => { if (confirm('きろくを ぜんぶ けしますか？')) { localStorage.removeItem(LOG_KEY); renderTeacher(); } } }, '🗑️ けす')),
         h('p', { class: 'help', style: 'margin:0' }, '「とまる ちから」は だるまさんで どれだけ ピタッと とまれたか（100%＝まったく うごかない）。きろくは この iPad の 中だけに あります。'));
     } else if (tTab === 'lic') renderLicense(b);
@@ -300,6 +299,11 @@
       🖌️ そらに なぞろう … 運動の 計画・ゆびさきの コントロール・形の 理解<br>
       🦩 バランス チャレンジ … 片足立ち（すわって モードは 両腕を 水平に キープ）・姿勢の 保持<br>
       🥁 リズム たいこ … リズムに あわせる・左右の 手を つかいわける<br><br>
+      <b>⚔️ ふたりで あそぶ</b>（せっていで「ホームに だす」）<br>iPad の 前に 2人が 左右に ならびます（画面の 左＝🔴あか、右＝🔵あお）。カメラから 2.5〜3m（ジャンプは もっと はなれて）。<br>
+      ・⚔️ たいせん … 画面が まんなかで 2つに わかれ、同じ あそびで きそいます。だるまさんは 1人の だるまさんで 同時に、まねっこは 同じ ポーズを はやい もの がち。<br>
+      ・🤝 きょうりょく … ふたりの ごうけいで ゴールを めざします（勝ち負けが にがてな 子にも）。<br>
+      ・🎈 ふたりの ふうせん … 1つの 画面を ふたりで。じぶんの 色・しろ（はやい もの がち）・きん（2人で いっしょに タッチ）。相手を 見て タイミングを あわせる 経験に。<br>
+      ・むずかしさは 1人ずつ（ハンデ）。勝敗の あとは 負けた 子にも 声かけを します。リズム たいこは 2人の 音が まざるので ふたりでは つかいません。<br><br>
       <b>サーキット</b>（🔁 タブ）… えらんだ あそびを つづけて 行います。授業の 流れ（ウォーミングアップ → メイン → クールダウン）に。<br><br>
       <b>こまった とき</b><br>・「からだが みえないよ」→ もう すこし はなれる／明るい 場所で<br>・ジャンプが はんのう しない →「むずかしさ」を「やさしい」に<br>・映像が 気になる →「みため」を「キャラ」に<br><br>
       <b>プライバシー</b><br>カメラの 映像は 保存も 送信も しません。iPad の 中で からだの 点だけを つかいます。</div>`;

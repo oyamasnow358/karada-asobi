@@ -218,16 +218,32 @@
     desc: 'おんがくで うごいて、「ころんだ！」で ピタッと とまろう', how: 'うごいて → ピタッ！',
     perMin: [3, 5, 6],
     create(K) {
-      let ph = 'go', tm = rnd(3.5, 5.5), motion = 0, prev = null, acc = 0, n = 0, face = 0, result = '', rate = 1;
+      let motion = 0, prev = null, acc = 0, n = 0, face = 0, result = '', seen = 'go';
       const KEYS = ['nose', 'ls', 'rs', 'le', 're', 'lw', 'rw', 'lh', 'rh'];
-      const TH = [0.5, 0.35, 0.24][K.diff], STOP = [2.2, 2.8, 3.6][K.diff];
+      // ふたりで：だるまさんは 1人（時間は リーダーが すすめ、もう 1人は あわせる）。とまる きびしさ（TH）は 1人ずつの むずかしさ
+      const S = K.shared, lead = !S || K.lead;
+      const TH = [0.5, 0.35, 0.24][K.diff], STOP = [2.2, 2.8, 3.6][K.vsDiff != null ? K.vsDiff : K.diff];
+      const P = S ? (S.dar = S.dar || { ph: 'go', tm: rnd(3.5, 5.5), rate: 1 }) : { ph: 'go', tm: rnd(3.5, 5.5), rate: 1 };
       K.bgm(true, 'happy'); K.msg('うごいて！', 'おんがくに あわせて', 1500);
       function setPh(p) {
-        ph = p;
-        if (p === 'go') { tm = rnd(3, 5.5); K.bgm(true, 'happy'); K.msg('うごいて！', null, 1000); }
-        if (p === 'call') { K.bgm(false); rate = pick([0.75, 1, 1, 1.3, 1.6]); tm = 2.3 / rate + 0.2; K.say('だるまさんが ころんだ！', rate); }
-        if (p === 'stop') { tm = STOP; acc = 0; n = 0; K.sfx('turn'); }
-        if (p === 'judge') tm = 1.6;
+        P.ph = p;
+        if (p === 'go') P.tm = rnd(3, 5.5);
+        if (p === 'call') { P.rate = pick([0.75, 1, 1, 1.3, 1.6]); P.tm = 2.3 / P.rate + 0.2; }
+        if (p === 'stop') P.tm = STOP;
+        if (p === 'judge') P.tm = 1.6;
+      }
+      // 場面が かわった ときの こと（それぞれの 人で）
+      function enter(p) {
+        if (p === 'go') { K.bgm(true, 'happy'); K.msg('うごいて！', null, 1000); }
+        if (p === 'call') { K.bgm(false); K.say('だるまさんが ころんだ！', P.rate); }
+        if (p === 'stop') { acc = 0; n = 0; K.sfx('turn'); }
+      }
+      function judge(B) {
+        const avg = n ? acc / n : 9;
+        K.stat('ラウンド');
+        if (avg < TH && B && B.ok) { result = 'ok'; K.sfx('good'); K.add(1, K.W / 2, K.H * 0.3); K.msg('ピタッ！', pick(PRAISE), 1400); K.burst(K.W / 2, K.H * 0.35, ['#FFD43B', '#69DB7C', '#4DABF7'], 30); }
+        else { result = 'ng'; K.msg('うごいちゃった〜', 'つぎは ピタッ！', 1400); }
+        K.statAvg('とまる ちから', clamp(1 - avg / (TH * 2), 0, 1));
       }
       return {
         avatarAlpha: 1,
@@ -245,21 +261,17 @@
             prev = cur;
           } else prev = null;
           motion += (m - motion) * Math.min(1, dt * 6);
+          const ph = P.ph;
           face += ((ph === 'stop' || ph === 'judge' ? 1 : 0) - face) * Math.min(1, dt * 10);
-          tm -= dt;
-          if (ph === 'go') { if (tm <= 0) setPh('call'); }
-          else if (ph === 'call') { if (tm <= 0) setPh('stop'); }
-          else if (ph === 'stop') {
-            if (STOP - tm > 0.45) { acc += motion; n++; }
-            if (tm <= 0) {
-              const avg = n ? acc / n : 9;
-              K.stat('ラウンド');
-              if (avg < TH && B && B.ok) { result = 'ok'; K.sfx('good'); K.add(1, K.W / 2, K.H * 0.3); K.msg('ピタッ！', pick(PRAISE), 1400); K.burst(K.W / 2, K.H * 0.35, ['#FFD43B', '#69DB7C', '#4DABF7'], 30); }
-              else { result = 'ng'; K.msg('うごいちゃった〜', 'つぎは ピタッ！', 1400); }
-              K.statAvg('とまる ちから', clamp(1 - avg / (TH * 2), 0, 1));
-              setPh('judge');
-            }
-          } else if (ph === 'judge') { if (tm <= 0) setPh('go'); }
+          if (lead) {
+            P.tm -= dt;
+            if (ph === 'go') { if (P.tm <= 0) setPh('call'); }
+            else if (ph === 'call') { if (P.tm <= 0) setPh('stop'); }
+            else if (ph === 'stop') { if (P.tm <= 0) setPh('judge'); }
+            else if (ph === 'judge') { if (P.tm <= 0) setPh('go'); }
+          }
+          if (ph === 'stop' && STOP - P.tm > 0.45) { acc += motion; n++; }
+          if (P.ph !== seen) { if (P.ph === 'judge' && seen === 'stop') judge(B); seen = P.ph; enter(P.ph); }
         },
         draw(g) {
           // だるまさん（右上）
@@ -278,10 +290,10 @@
           const mw = Math.min(K.W * 0.5, 420), mx = (K.W - mw) / 2, my = K.H - 60;
           g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.roundRect ? g.roundRect(mx - 10, my - 10, mw + 20, 40, 20) : g.rect(mx - 10, my - 10, mw + 20, 40); g.fill();
           const v = clamp(motion / (TH * 4), 0, 1);
-          g.fillStyle = ph === 'stop' ? (motion < TH ? '#40C057' : '#FA5252') : '#FAB005';
+          g.fillStyle = P.ph === 'stop' ? (motion < TH ? '#40C057' : '#FA5252') : '#FAB005';
           g.fillRect(mx, my, mw * v, 20);
           g.fillStyle = '#495057'; g.font = '700 16px sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
-          g.fillText(ph === 'stop' ? '🧊 とまって！' : ph === 'call' ? '👂 きいて…' : '💃 うごいて！', mx, my - 26);
+          g.fillText(P.ph === 'stop' ? '🧊 とまって！' : P.ph === 'call' ? '👂 きいて…' : '💃 うごいて！', mx, my - 26);
         }
       };
     }
@@ -325,11 +337,18 @@
     perMin: [4, 7, 10],
     create(K) {
       const list = POSES.filter(p => !(p.legs && K.seated));
-      let cur = null, hold = 0, left = 0, score = 0, done = 0, last = null, bag = [];
+      let cur = null, hold = 0, left = 0, score = 0, done = 0, last = null, bag = [], round = 0;
       const NEED = [0.6, 0.72, 0.82][K.diff], HOLD = [0.7, 1.0, 1.5][K.diff];
-      function next() {
+      // ふたりで：おなじ ポーズを だして、はやく できた ほうに 1てん
+      const S = K.shared ? (K.shared.mane = K.shared.mane || { round: 0, cur: null, won: -1 }) : null;
+      function pickPose() {
         if (!bag.length) bag = list.slice().sort(() => Math.random() - 0.5);
-        cur = bag.pop(); if (cur === last && bag.length) { bag.unshift(cur); cur = bag.pop(); }
+        let c = bag.pop(); if (c === last && bag.length) { bag.unshift(c); c = bag.pop(); }
+        return c;
+      }
+      function next() {
+        if (S) { if (S.round === round) { S.cur = pickPose(); S.round++; } round = S.round; cur = S.cur; }
+        else cur = pickPose();
         last = cur; hold = 0; left = 10; done = 0; K.say(cur.n);
       }
       next();
@@ -339,10 +358,12 @@
         drawBg(g) { sky(g, K.W, K.H, '#E5DBFF', '#F8F0FC'); g.fillStyle = '#D0BFFF'; g.fillRect(0, K.H * 0.88, K.W, K.H * 0.12); },
         update(dt, B) {
           if (done > 0) { done -= dt; if (done <= 0) next(); return; }
+          if (S && S.round !== round) { next(); return; }
+          if (S && S.won === round) { if (K.coop) K.msg('ナイス！', 'あいてが できたよ', 1100); else K.msg('おしい！', 'つぎは まけないぞ', 1100); done = 1.2; return; }
           left -= dt;
           score = B && B.ok ? poseScore(cur, B) : 0;
           if (score >= NEED) hold += dt; else hold = Math.max(0, hold - dt * 2);
-          if (hold >= HOLD) { K.sfx('good'); K.add(1, K.W / 2, K.H * 0.4); K.msg(pick(PRAISE), cur.n + ' できた！', 1100); K.burst(K.W / 2, K.H * 0.4, ['#B197FC', '#FFD43B', '#63E6BE'], 26); done = 1.2; }
+          if (hold >= HOLD) { if (S) S.won = round; K.sfx('good'); K.add(1, K.W / 2, K.H * 0.4); K.msg(pick(PRAISE), cur.n + ' できた！', 1100); K.burst(K.W / 2, K.H * 0.4, ['#B197FC', '#FFD43B', '#63E6BE'], 26); done = 1.2; }
           else if (left <= 0) { K.msg('つぎ いくよ', null, 900); done = 0.9; }
         },
         draw(g) {
